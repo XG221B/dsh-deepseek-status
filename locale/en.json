@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DeepSeek Status",
+    "description": "Two live indicators beside the composer: whether the API is billed at peak or off-peak rates (with a countdown and the published rate table), and the account balance (topped-up and granted). Pricing is self-updating and cross-checked; the balance is read through the Harness account service."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "dsh-deepseek-status",
+  "version": "2.0.0",
+  "description": "DeepSeek Harness plugin: a peak/off-peak billing indicator and a live account balance beside the composer, both self-updating and both credential-free.",
+  "type": "module",
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "data.js",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json"
+  ],
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "pricing",
+    "off-peak",
+    "balance",
+    "credits"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XG221B/dsh-deepseek-status.git"
+  },
+  "homepage": "https://github.com/XG221B/dsh-deepseek-status#readme",
+  "bugs": {
+    "url": "https://github.com/XG221B/dsh-deepseek-status/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

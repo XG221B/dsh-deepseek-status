@@ -1,0 +1,13 @@
+# Inserts the one Loader row this bundle owns.
+#
+# A package gets exactly one row and exactly one browser module id, so the two
+# features share this package and this client bundle; the browser half registers
+# each feature's own slot entries.
+#
+# The row must name the package itself, never a subpath: the browser module id is
+# derived from the row specifier by resolving `<specifier>/client`, so a row such
+# as `dsh-deepseek-status/host` fails to import when the client half is resolved.
+
+- insert:
+    - id: dsh-deepseek-status
+      name: 'dsh-deepseek-status'

@@ -1,0 +1,15 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4.5 16 L10.5 7.5 L16 13.5 L21.5 4.5 L27.5 12" stroke="url(#dshs-line)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="7" y="20" width="22" height="11.5" rx="3" stroke="url(#dshs-wallet)" stroke-width="2.2"/>
+  <circle cx="23.5" cy="25.8" r="2.4" fill="#3BC97F"/>
+  <defs>
+    <linearGradient id="dshs-line" x1="4.5" y1="16" x2="27.5" y2="4.5" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3BC97F"/>
+      <stop offset="1" stop-color="#4A7BF7"/>
+    </linearGradient>
+    <linearGradient id="dshs-wallet" x1="7" y1="31.5" x2="29" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4A7BF7"/>
+      <stop offset="1" stop-color="#3BC97F"/>
+    </linearGradient>
+  </defs>
+</svg>
