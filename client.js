@@ -24,21 +24,69 @@ window.__ModuleLoader__.load({
     const pricing = createPricing({ React: React, h: h });
     const balance = createBalance({ React: React, h: h });
 
+    /** Where the last activation report is left for a developer to read. */
+    const DIAG_KEY = 'dsh-deepseek-status/diagnostics';
+
     return {
-      // Only the services both features read directly are hard dependencies.
-      // The account namespace is resolved below and treated as optional.
+      // Hard dependencies only, and only services every web composition has.
+      // This entry MUST always activate: an inactive entry fails the whole
+      // desktop web boot ("web boot: 1 entry did not activate"), so anything
+      // optional is mounted through ctx.inject instead of being injected here.
       inject: ['slots', 'locale'],
       apply(ctx) {
-        pricing.apply(ctx);
+        const report = { at: new Date().toISOString(), mounted: [], failures: [] };
 
-        const remote = typeof ctx.get === 'function' ? ctx.get('remote') : undefined;
-        if (remote === undefined || remote === null || remote.account === undefined) {
-          console.info('[dsh-deepseek-status] the account namespace is unavailable; the balance badge stays unmounted');
-          return;
-        }
-        balance.apply(ctx, remote);
+        // A display plugin may never take a boot down with it: each half's
+        // activation failure is recorded and reported, never rethrown.
+        const runPart = (part, action) => {
+          try {
+            action();
+            report.mounted.push(part);
+          } catch (error) {
+            const message = error !== null && typeof error === 'object' && typeof error.message === 'string' ? error.message : String(error);
+            report.failures.push({
+              part,
+              message,
+              stack: error !== null && typeof error === 'object' && typeof error.stack === 'string' ? error.stack : null,
+            });
+            try {
+              console.error(`[dsh-deepseek-status] the ${part} half could not adapt to this composition:`, error);
+            } catch (ignored) {
+              /* reporting must never be the thing that throws */
+            }
+          }
+        };
+
+        runPart('pricing', () => pricing.apply(ctx));
+
+        // The account namespace is optional. ctx.inject mounts a child fiber
+        // that waits for it, which keeps THIS entry active either way and makes
+        // ctx.remote legal inside the balance half.
+        ctx.inject(['remote', 'remote.account'], (balanceCtx) => {
+          runPart('balance', () => balance.apply(balanceCtx));
+          publish(report);
+        });
+
+        publish(report);
       },
     };
+
+    /**
+     * Record one activation report when something went wrong.
+     *
+     * A healthy activation writes nothing: an optional namespace that is simply
+     * absent is by design, not a failure. When a half does fail, DSH's own boot
+     * audit reports only "failed" without the reason, so this leaves the reason
+     * where a maintainer can read it from the profile's Local Storage.
+     */
+    function publish(report) {
+      if (report.failures.length === 0) return;
+      try {
+        window.localStorage.setItem(DIAG_KEY, JSON.stringify(report));
+      } catch (error) {
+        /* storage is best-effort; the console line already carried the report */
+      }
+    }
 
     /** @param {{ React: unknown, h: Function }} shared - the runtime both halves render with. */
     function createPricing({ React, h }) {
@@ -1656,8 +1704,9 @@ window.__ModuleLoader__.load({
      * ------------------------------------------------------------------ */
 
     return {
-      // Resolved and handed in by the merged plugin's apply; see client.js.
-      apply(ctx, remote) {
+      // The merged plugin mounts this half only through ctx.inject, so the
+      // injected services below are the ones this fiber actually receives.
+      apply(ctx) {
         localeService = ctx.locale;
         boundT = localeService.bind(NS);
 
@@ -1679,7 +1728,7 @@ window.__ModuleLoader__.load({
           return localeService.register(NS, 'en', DICT.en);
         }, 'dsh-deepseek-status: balance en dictionary');
 
-        remoteAccount = remote.account;
+        remoteAccount = ctx.remote.account;
 
         ctx.effect(
           function () {

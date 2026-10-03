@@ -185,10 +185,10 @@ node tools/test-data.mjs      # Host 数据层：解析、校验、降级、双�
 node tools/test-pricing.mjs   # 计费浏览器逻辑：窗口边界、切换计算、快照合并（75 项）
 node tools/test-balance.mjs   # 余额浏览器逻辑：金额格式化、多币种合计、Remote 信封映射（54 项）
 node tools/test-host.mjs      # Host 端到端：路由 + 真联网抓取 + 缓存落盘（36 项）
-node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟：模块 id、四个槽位、可选依赖降级（17 项）
+node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟：模块 id、四个槽位、可选依赖降级、故障隔离（21 项）
 ```
 
-五套合计 **282 项**。`test-host.mjs` 需要网络，离线时联网部分报 `SKIP` 而非失败；它使用独立临时缓存目录，**不会动部署态数据**。`test-bundle.mjs` 按页面加载器的方式评估整个 bundle 并驱动 `apply`——它专门抓「能加载但什么都没挂上」这类只有界面里才看得出的故障。
+五套合计 **286 项**。`test-host.mjs` 需要网络，离线时联网部分报 `SKIP` 而非失败；它使用独立临时缓存目录，**不会动部署态数据**。`test-bundle.mjs` 按页面加载器的方式评估整个 bundle 并驱动 `apply`——它专门抓「能加载但什么都没挂上」这类只有界面里才看得出的故障。
 
 架构与两条硬约束（包名 = 浏览器模块 id = 一行；Host 代码改动需重启）见 [DEVELOPING.md](./DEVELOPING.md)，版本历史见 [CHANGELOG.md](./CHANGELOG.md)。
 

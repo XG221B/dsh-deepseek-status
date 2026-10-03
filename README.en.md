@@ -83,9 +83,9 @@ node tools/test-data.mjs      # host data layer: parsing, validation, degradatio
 node tools/test-pricing.mjs   # pricing browser logic: window edges, next-switch, merge semantics (75)
 node tools/test-balance.mjs   # balance browser logic: formatting, grouping, envelope mapping (54)
 node tools/test-host.mjs      # host end to end: route, live fetch, cache persistence (36)
-node tools/test-bundle.mjs    # whole-bundle smoke: module id, four slots, optional-dependency fallback (17)
+node tools/test-bundle.mjs    # whole-bundle smoke: module id, four slots, optional-dependency fallback, fault isolation (21)
 ```
 
-282 checks across the five suites. `test-host.mjs` uses its own temporary cache directory and never touches deployed data; `test-bundle.mjs` evaluates the bundle the way the page's loader does and drives `apply`, which is what catches a bundle that loads but mounts nothing. See [DEVELOPING.md](./DEVELOPING.md) for the architecture and the two hard constraints, and [CHANGELOG.md](./CHANGELOG.md) for history.
+286 checks across the five suites. `test-host.mjs` uses its own temporary cache directory and never touches deployed data; `test-bundle.mjs` evaluates the bundle the way the page's loader does and drives `apply`, which is what catches a bundle that loads but mounts nothing. See [DEVELOPING.md](./DEVELOPING.md) for the architecture and the two hard constraints, and [CHANGELOG.md](./CHANGELOG.md) for history.
 
 中文说明：[README.md](./README.md)

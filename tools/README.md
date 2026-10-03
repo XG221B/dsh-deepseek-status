@@ -7,7 +7,7 @@ node tools/test-data.mjs      # Host 数据层（100 项）
 node tools/test-pricing.mjs   # 计费浏览器逻辑（75 项）
 node tools/test-balance.mjs   # 余额浏览器逻辑（54 项）
 node tools/test-host.mjs      # Host 端到端，需要网络（36 项）
-node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（17 项）
+node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（21 项）
 ```
 
 ## 各测什么

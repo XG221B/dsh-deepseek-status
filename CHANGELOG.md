@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.1 — 修复：合并后的客户端入口会让 DSH 起不来
+
+**问题**：2.0.0 的浏览器半边把余额功能的注入契约改错了——旧插件把 `remote`/`remote.account` 声明在自己的 `inject` 里，合并时改成了「在 wrapper 里用 `ctx.get('remote')` 取出再传参」，但余额半边内部仍按属性访问 `ctx.remote`。Cordis 对未声明的服务属性访问会抛 `cannot get property "remote" without inject`，于是**客户端入口激活失败**。
+
+**后果**：DSH 把「入口没激活」视为致命启动错误。桌面壳上报 `web boot: 1 entry did not activate / dsh-deepseek-status: failed`，**整个界面起不来**，随后 DSH 做恢复性重置：把该 bundle 从 profile 的 `dsh.profile.bundles` 移除，并把 `cordis.patch.yml` 备份为 `.bak-<epoch>` 后重写为默认值（用户设置因此丢失一次）。
+
+**修复**
+
+- 用 Cordis 的可选注入模式挂载余额半边：`ctx.inject(['remote', 'remote.account'], (ctx) => …)`——入口自身始终激活，账号命名空间不存在时只是不挂余额徽标；
+- `inject` 只保留必然存在的服务（`slots`、`locale`）；
+- 两个半边与 Host 半边的路由注册都包上 try/catch：**显示类插件永不拖垮启动**，失败被记录并降级；
+- 客户端激活失败会写入页面 Local Storage 的 `dsh-deepseek-status/diagnostics`（仅在失败时），因为 DSH 的启动审计只报 `failed`、不报原因；
+- 无头测试补上真实契约：桩上下文按真实语义把服务暴露为属性、并提供 `ctx.inject`，另加「某个半边抛错被隔离而非冒泡」的用例（`test-bundle.mjs` 17 → 21 项）。
+
 ## 2.0.0 — 合并为一个项目
 
 两个插件合并成一个包，安装名由 `dsh-peak-price` 改为 **`dsh-deepseek-status`**。

@@ -47,7 +47,7 @@ const RETRY_AFTER_MS = 5 * 60 * 1000;
  */
 const FIRST_LOAD_RETRY_MS = 60 * 1000;
 const FETCH_TIMEOUT_MS = 20000;
-const USER_AGENT = 'dsh-deepseek-status/2.0.0 (DeepSeek Harness plugin)';
+const USER_AGENT = 'dsh-deepseek-status/2.0.1 (DeepSeek Harness plugin)';
 
 /**
  * Read one URL as text. Kept local so the timer, the route, and the data layer
@@ -164,10 +164,14 @@ export function apply(ctx) {
   );
 
   ctx.effect(
-    () =>
-      ctx.webServer.register({
-        kind: 'exact',
-        path: ROUTE,
+    () => {
+      // A display plugin must never fail an activation: DSH treats an entry that
+      // did not activate as a fatal boot error, and the Client half already
+      // falls back to its own snapshot when this route is missing.
+      try {
+        return ctx.webServer.register({
+          kind: 'exact',
+          path: ROUTE,
         handler: async (req, res) => {
           try {
             if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -206,8 +210,13 @@ export function apply(ctx) {
               /* headers may already be out */
             }
           }
-        },
-      }),
+          },
+        });
+      } catch (error) {
+        warn(`dsh-deepseek-status: could not register ${ROUTE} (${error && error.message ? error.message : String(error)}); the Client half keeps its built-in snapshot`);
+        return () => {};
+      }
+    },
     'dsh-deepseek-status: dataset route',
   );
 

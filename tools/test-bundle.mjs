@@ -69,6 +69,7 @@ function stubContext({ remote }) {
   const registrations = [];
   const effects = [];
   const dictionaries = [];
+  const injected = [];
   const locale = {
     register: (ns, localeId) => {
       dictionaries.push(`${ns}:${localeId}`);
@@ -79,27 +80,34 @@ function stubContext({ remote }) {
     getLocale: () => ({ active: 'zh' }),
     subscribe: () => () => {},
   };
-  return {
-    registrations,
-    effects,
-    dictionaries,
-    ctx: {
-      locale,
-      get: (name) => (name === 'remote' ? remote : undefined),
-      effect: (callback, label) => {
-        const disposer = callback();
-        effects.push({ label, disposer });
-        return disposer;
+  const ctx = {
+    locale,
+    // On the real client context a provided service is reachable as a property
+    // (that is how the shipped account UI reads ctx.remote.account), and only
+    // inside a fiber that injected it. Modelling that is the point of this stub.
+    remote,
+    get: (name) => (name === 'remote' ? remote : undefined),
+    // Optional services arrive through ctx.inject, exactly as in the real client
+    // context: the callback runs only once they have been provided.
+    inject: (deps, callback) => {
+      injected.push(deps);
+      if (remote !== undefined && remote !== null) callback(ctx);
+      return Promise.resolve();
+    },
+    effect: (callback, label) => {
+      const disposer = callback();
+      effects.push({ label, disposer });
+      return disposer;
+    },
+    slots: {
+      inject: (key, callback) => {
+        registrations.push({ slot: key, registration: callback() });
+        return () => {};
       },
-      slots: {
-        inject: (key, callback) => {
-          registrations.push({ slot: key, registration: callback() });
-          return () => {};
-        },
-        register: (options) => options,
-      },
+      register: (options) => options,
     },
   };
+  return { registrations, effects, dictionaries, injected, ctx };
 }
 
 function remoteStub() {
@@ -171,6 +179,9 @@ check('both dictionaries are registered per feature', full.dictionaries.sort(), 
 check('both stylesheets are injected', styleTags.length, 2);
 check('the effects are registered and disposable', full.effects.length, 8);
 ok('every effect returned a disposer', full.effects.every((entry) => typeof entry.disposer === 'function'));
+// Only guaranteed services may be hard dependencies: an entry that waits for an
+// optional one stays inactive, and an inactive entry fails the desktop web boot.
+check('optional services are requested through ctx.inject', full.injected, [['remote', 'remote.account']]);
 
 console.log('--- activation without the account namespace ---');
 const reduced = stubContext({ remote: undefined });
@@ -179,15 +190,38 @@ const pluginAgain = loadBundle().definition.factory((name) => {
   throw new Error(`unexpected module request: ${name}`);
 });
 pluginAgain.apply(reduced.ctx);
-check(
-  'the pricing badge still mounts without an account namespace',
-  reduced.registrations.map((entry) => entry.registration.id),
-  ['dsh-deepseek-status-pricing', 'dsh-deepseek-status-pricing-detail'],
-);
+check('the pricing badge still mounts without an account namespace', reduced.registrations.map((entry) => entry.registration.id), ['dsh-deepseek-status-pricing', 'dsh-deepseek-status-pricing-detail']);
 check('only the pricing dictionaries are registered', reduced.dictionaries.sort(), [
   'dsh-deepseek-status-pricing:en',
   'dsh-deepseek-status-pricing:zh',
 ]);
+check('the optional mount is still requested', reduced.injected, [['remote', 'remote.account']]);
+
+console.log('--- a failing half never takes the entry down ---');
+const broken = stubContext({
+  remote: {
+    get account() {
+      throw new Error('simulated account-namespace failure');
+    },
+    $on: () => () => {},
+  },
+});
+const pluginBroken = loadBundle().definition.factory((name) => {
+  if (name === 'react') return stubReact();
+  throw new Error(`unexpected module request: ${name}`);
+});
+let brokenThrew = null;
+try {
+  pluginBroken.apply(broken.ctx);
+} catch (error) {
+  brokenThrew = error;
+}
+check('a half that throws is contained, not propagated', brokenThrew, null);
+check(
+  'the surviving half still registered its cells',
+  broken.registrations.map((entry) => entry.registration.id),
+  ['dsh-deepseek-status-pricing', 'dsh-deepseek-status-pricing-detail'],
+);
 
 console.log('--- teardown ---');
 for (const entry of full.effects) {

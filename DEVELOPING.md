@@ -44,7 +44,56 @@ factory(require) {
 
 1. **包名 = Loader 行 = 浏览器模块 id**，改名要三处一起改（`package.json` / `cordis.patch.yml` / `client.js` 里 `load({ id })`）。
 2. **Host 代码改动需要重启 Harness 才生效**：Host 按解析后的 URL 缓存已导入的模块，重新启用插件不会重新导入。开发时可以直接跑 `tools/test-host.mjs`——它用桩上下文加载 `index.js` 并驱动真实抓取路径，不需要启动界面。
-3. **余额功能是可选挂载**：`apply` 先用 `ctx.get('remote')` 探测账号命名空间，缺失时只跳过余额半边并发一条 console 说明，**不能让计费徽标跟着消失**。加新功能时保持这个原则：可选依赖不能拖垮必需功能。
+3. **入口必须永远激活**——见下一节，这是踩过最贵的一次坑。
+
+## 铁律：入口必须永远激活
+
+DSH 把「有入口没激活」当作**致命启动错误**。桌面壳在渲染进程启动后审计客户端树，只要有一个入口不是 `active` 就通过 IPC 上报 `bootFailed`：
+
+```
+Error: web boot: 1 entry did not activate
+dsh-deepseek-status: failed
+```
+
+后果不是「这个插件不能用」，而是**整个界面起不来**；随后 DSH 做恢复性重置——把出问题的 bundle 从 profile 的 `dsh.profile.bundles` 移除，并把 `cordis.patch.yml` 重命名备份为 `.bak-<epoch-ms>` 后**重写为默认值**（用户设置因此丢失过一次）。
+
+更麻烦的是审计代码**只报状态、不报原因**（`dsh-web-frontend/dist/assets/index-*.js`）：
+
+```js
+if (s.fiber === void 0)              o.push(`${name}: import failed: ${err.message}`)  // 只有导入失败带原因
+else if (state === 'pending')        o.push(`${name}: pending (waiting for services: …)`)
+else                                 o.push(`${name}: ${state}`)                       // ← "failed"：无原因
+```
+
+所以本项目两条规则：
+
+1. **`inject` 只放必然存在的服务**（`slots`、`locale`）。可选服务一律用 `ctx.inject([...], cb)` 挂载子纤维——放进 `inject` 会让入口停在 `pending`，同样致命。
+2. **每个半边、以及 Host 半边的路由注册，都包在 try/catch 里**：显示类插件永远不该拖垮启动。失败记录并降级，而不是冒泡。
+
+Cordis 的语义值得记住（`@deepseek-ai/cordis/lib/index.js`）：
+
+- **属性访问** `ctx.remote` 在未 `inject` 时抛 `cannot get property "remote" without inject`（proxy get 陷阱）；
+- **`ctx.get(name, strict?)`** 才是「不需要 inject 也能读」的安全通道，`strict` 只影响是否要求提供方已激活；
+- 因此「用 `ctx.get` 取出来传参」**不能**让半边内部继续按属性访问——这正是 2.0.1 修掉的那个回归。
+
+### 客户端激活失败去哪找原因
+
+审计不给原因，所以 `client.js` 在失败时把报告写进页面 Local Storage（健康时**不写**）：
+
+```
+%APPDATA%\@deepseek-ai\dsh-desktop\Local Storage\leveldb\*.log   ← 键 dsh-deepseek-status/diagnostics
+```
+
+Chromium 会独占这个文件，读取要带共享标志：
+
+```powershell
+$fs=[IO.File]::Open($path,'Open','Read','ReadWrite')
+$r=New-Object System.IO.StreamReader($fs,[System.Text.Encoding]::UTF8); $r.ReadToEnd()
+```
+
+### 设置被重置时怎么恢复
+
+DSH 重写 `cordis.patch.yml` 前会把它存成 `cordis.patch.yml.bak-<epoch-ms>`（epoch 毫秒即重置时刻，可直接换算）。恢复即把该文件里的条目合并回来，**但要去掉指向已卸载 bundle 的行**（那些 id 在树里已不存在）。
 
 ## 测试策略
 
@@ -53,12 +102,12 @@ node tools/test-data.mjs      # Host 数据层（100）
 node tools/test-pricing.mjs   # 计费浏览器逻辑（75）
 node tools/test-balance.mjs   # 余额浏览器逻辑（54）
 node tools/test-host.mjs      # Host 端到端，需要网络（36）
-node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（17）
+node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（21）
 ```
 
-合计 282 项。
+合计 286 项。
 
-- **`test-bundle.mjs` 是改结构后的必跑项**：它按页面加载器的方式评估整个 `client.js` 并驱动 `apply`，检查模块 id、四个槽位条目、两个命名空间、两张样式表、八个 effect，以及「没有账号命名空间时只挂计费半边」。纯逻辑测试看不见「能加载但什么都没挂上」，那类故障在界面里只表现为徽标消失。
+- **`test-bundle.mjs` 是改结构后的必跑项**：它按页面加载器的方式评估整个 `client.js` 并驱动 `apply`，检查模块 id、四个槽位条目、两个命名空间、两张样式表、八个 effect、`ctx.inject` 的依赖清单，以及「某个半边抛错被隔离而不是冒泡」。它的桩上下文必须**忠实模拟真实语义**：服务以**属性**形式暴露（`ctx.remote`），并提供 `ctx.inject`——桩与真实语义不一致时，恰恰会放过 2.0.1 那类故障。
 
 - 纯逻辑测试**从 `client.js` 里按标记切出无依赖区间**再执行（区间边界是各功能自己的 `const NS = '…'` 与 `* Translation` 注释），所以测的是随包发布的那份代码，而不是副本。改这两个标记要同步改对应测试。
 - 故意破坏的用例是重点：未知 status、残缺钱包数组、被拒绝的调用、峰谷两列对调、中英窗口不一致、星期范围不一致——验证的是**读不出来就明说，绝不给模糊值**。
