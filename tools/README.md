@@ -24,6 +24,18 @@ node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（21 项）
 
 这套测试专门抓「bundle 能加载但什么都没挂上」这类故障：纯逻辑测试看不见它，而在界面里表现为徽标凭空消失，只能靠刷新/重启反复试。**改动 bundle 结构（新增功能、改命名空间、改槽位）后必须跑它。**
 
+**`preflight.mjs`** — 不是测试，而是**升级前的契约体检**：
+
+```bash
+node tools/preflight.mjs --live                                  # 自动找 app.asar（也可显式传路径）
+node tools/preflight.mjs --list dsh/node_modules/@deepseek-ai/   # 排查用：列目录
+node tools/preflight.mjs --dump <路径>                            # 排查用：打印单个文件
+```
+
+它自带一个**纯 Node 的 asar 读取器**（无依赖、不解包到磁盘），核对本插件依赖的 12 处契约 + 1 项信息性检查（web 启动是否仍把「入口未激活」当致命错误）；`--live` 顺带检查运行中的数据集路由。
+
+退出码：`0` 全部通过；`1` 有契约消失（并打印该契约消失的后果与禁用 bundle 的方法）；`2` 找不到 `app.asar`。
+
 ## fixtures 是怎么来的
 
 - **价格页样本不是文档页的拷贝**，而是 `node tools/make-fixtures.mjs` 从实时页面**裁剪**出的最小文档：只保留价格表 + 写明规则的那一段脚注（约 3 KB，而不是原页 24 KB）。

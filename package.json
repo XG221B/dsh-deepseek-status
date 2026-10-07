@@ -1,10 +1,14 @@
 {
   "name": "dsh-deepseek-status",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "DeepSeek Harness plugin: a peak/off-peak billing indicator and a live account balance beside the composer, both self-updating and both credential-free.",
   "type": "module",
   "license": "MIT",
   "icon": "./icon.svg",
+  "scripts": {
+    "test": "node tools/test-data.mjs && node tools/test-pricing.mjs && node tools/test-balance.mjs && node tools/test-bundle.mjs",
+    "preflight": "node tools/preflight.mjs"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

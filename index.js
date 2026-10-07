@@ -47,7 +47,7 @@ const RETRY_AFTER_MS = 5 * 60 * 1000;
  */
 const FIRST_LOAD_RETRY_MS = 60 * 1000;
 const FETCH_TIMEOUT_MS = 20000;
-const USER_AGENT = 'dsh-deepseek-status/2.0.1 (DeepSeek Harness plugin)';
+const USER_AGENT = 'dsh-deepseek-status/2.0.2 (DeepSeek Harness plugin)';
 
 /**
  * Read one URL as text. Kept local so the timer, the route, and the data layer

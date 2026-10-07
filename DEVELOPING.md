@@ -105,7 +105,24 @@ node tools/test-host.mjs      # Host 端到端，需要网络（36）
 node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（21）
 ```
 
-合计 286 项。
+合计 286 项。push/PR 会自动跑前四套（`.github/workflows/test.yml`），联网那套单独成 job 且非阻挡。
+
+### DSH 升级检查清单
+
+**升级后、重启前**按顺序做：
+
+1. `node tools/preflight.mjs --live` —— 直接读 `app.asar` 核对 12 处契约；任一 FAIL 就先按它打印的方法禁用 bundle，别带着风险重启；
+2. `pnpm test`（= 4 套离线测试，286 项里的 250 项）；
+3. 重启后确认：两个徽标在、`/dsh-deepseek-status/data.json` 返回 200、`preflight --live` 通过。
+
+失效时的表现分四种，照着判断自己遇到的是哪种：
+
+| 现象 | 多半是什么 | 会不会崩 |
+|---|---|---|
+| 徽标凭空消失 | 槽位 key 改名/移除 | 不会（`preflight` 会报 FAIL） |
+| 卡片显示「读取失败」 | Remote 契约（`getBalance`/信封字段）变了 | 不会，也不会给假数字 |
+| **界面起不来** | 客户端入口未激活（**唯一致命项**） | 会；按 preflight 的方法禁用 bundle 即可恢复 |
+| 数字过期但卡片标着来源时间 | 官方页面改版，需更新 `data.js` 的解析器 | 不会 |
 
 - **`test-bundle.mjs` 是改结构后的必跑项**：它按页面加载器的方式评估整个 `client.js` 并驱动 `apply`，检查模块 id、四个槽位条目、两个命名空间、两张样式表、八个 effect、`ctx.inject` 的依赖清单，以及「某个半边抛错被隔离而不是冒泡」。它的桩上下文必须**忠实模拟真实语义**：服务以**属性**形式暴露（`ctx.remote`），并提供 `ctx.inject`——桩与真实语义不一致时，恰恰会放过 2.0.1 那类故障。
 

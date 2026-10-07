@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2 — 只有开发工具与 CI（运行时行为无变化）
+
+- 新增 `tools/preflight.mjs`：**DSH 升级后的一条命令**。它直接读安装目录里的 `app.asar`（自带纯 Node 的 asar 读取器，无依赖、不解包到磁盘），核对本插件依赖的 12 处契约——两个槽位 key、四个客户端服务包、浏览器模块加载契约 `__ModuleLoader__`、清单字段 `dsh.client.immediately`、客户端 `ctx.inject(deps, cb)` 的真实用法、Host 路由选项 `handler`、Cordis 的注入语义（属性访问需 inject）；另有一项信息性检查（web 启动是否仍把「入口未激活」当致命错误）。`--live` 还会顺带检查运行中的数据集路由。任一项消失时它打印该契约消失的后果，以及如何在下次启动前禁用本 bundle。
+- 新增 GitHub Actions（`.github/workflows/test.yml`）：push/PR 时跑 4 套离线测试（阻挡性），联网那套单独成 job 且**非阻挡**（上游页面改版不该让仓库变红，但值得被看见）。`permissions: contents: read`。
+- `package.json` 增加 `test` 与 `preflight` 两个脚本。
+
 ## 2.0.1 — 修复：合并后的客户端入口会让 DSH 起不来
 
 **问题**：2.0.0 的浏览器半边把余额功能的注入契约改错了——旧插件把 `remote`/`remote.account` 声明在自己的 `inject` 里，合并时改成了「在 wrapper 里用 `ctx.get('remote')` 取出再传参」，但余额半边内部仍按属性访问 `ctx.remote`。Cordis 对未声明的服务属性访问会抛 `cannot get property "remote" without inject`，于是**客户端入口激活失败**。

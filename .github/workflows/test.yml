@@ -1,0 +1,47 @@
+name: test
+
+# The package has no dependencies and no build step, so CI is just Node running
+# the suites. The offline suites are blocking; the one that reads live upstream
+# sources is informational so an upstream hiccup cannot red-X the repository.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    name: offline suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: host data layer (parsing, validation, degradation, cross-checks)
+        run: node tools/test-data.mjs
+      - name: pricing browser logic (windows, next switch, merge semantics)
+        run: node tools/test-pricing.mjs
+      - name: balance browser logic (formatting, grouping, envelope mapping)
+        run: node tools/test-balance.mjs
+      - name: whole-bundle smoke (module id, slots, optional mount, fault isolation)
+        run: node tools/test-bundle.mjs
+
+  live-sources:
+    name: live source suite (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Reads the official pricing pages and both holiday datasets. Network
+      # trouble is reported as SKIP rather than failure; a failure here means an
+      # upstream page changed shape, which is the maintenance signal worth seeing.
+      - name: host end to end against live sources
+        run: node tools/test-host.mjs
