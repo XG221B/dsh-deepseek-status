@@ -1,6 +1,6 @@
 # tools
 
-四套测试、测试样本与样本再生成脚本。这个目录**不会**发到 npm（`package.json` 的 `files` 白名单不含它），但会随 git 仓库公开。
+五套测试、安装器、契约体检、测试样本与样本再生成脚本。这个目录**不会**发到 npm（`package.json` 的 `files` 白名单不含它），但会随 git 仓库公开。
 
 ```bash
 node tools/test-data.mjs      # Host 数据层（100 项）
@@ -8,6 +8,7 @@ node tools/test-pricing.mjs   # 计费浏览器逻辑（75 项）
 node tools/test-balance.mjs   # 余额浏览器逻辑（54 项）
 node tools/test-host.mjs      # Host 端到端，需要网络（36 项）
 node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（21 项）
+node tools/test-install.mjs   # profile 安装器（49 项；本机无 pnpm 时最后 9 项报 SKIP）
 ```
 
 ## 各测什么
@@ -23,6 +24,19 @@ node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（21 项）
 **`test-bundle.mjs`** — 按页面模块加载器的方式评估**整个** `client.js`（同样的 `window` 契约、同样的工厂调用、同样的 `apply(ctx)`），断言激活后注册了什么：模块 id 等于包名、两个徽标 + 两个详情卡、四个槽位 id 与顺序、两个 locale 命名空间、两张样式表、八个可释放的 effect；以及**可选依赖降级**——没有账号命名空间时只挂计费半边并打印一条说明。
 
 这套测试专门抓「bundle 能加载但什么都没挂上」这类故障：纯逻辑测试看不见它，而在界面里表现为徽标凭空消失，只能靠刷新/重启反复试。**改动 bundle 结构（新增功能、改命名空间、改槽位）后必须跑它。**
+
+**`test-install.mjs`** — 用临时目录里的假 profile 测 `install.mjs` 的判定：哪些依赖该进 `dsh.profile.bundles`、哪些该出来（被卸载，或新版本不再声明 `dsh.bundle`）、模板自带且不是依赖的行不碰、二次运行不改一个字节、`--dry-run` 不写盘、清单坏掉时报清晰错误。最后一段是真实路径——装了 pnpm 时把本仓库装进一个一次性 profile 再卸载（没装 pnpm 就报 `SKIP`，所以在只带 Node 的 CI runner 上也能通过）。
+
+**`install.mjs`** — 不是测试，而是**装在 `desktop` profile 里的那条命令行**：`dsh plugin` 对该 profile 直接报错（Electron 独占管理），这个脚本做 DSH 自己做的两步——profile 目录里 `pnpm add/remove`，再把真包名并入 `dsh.profile.bundles`。用法：
+
+```bash
+node tools/install.mjs --profile desktop                 # 装（默认 spec 是 github:XG221B/dsh-deepseek-status）
+node tools/install.mjs --profile desktop --dry-run        # 只看计划，不落盘
+node tools/install.mjs --profile desktop --remove         # 卸
+node tools/install.mjs --profile-dir <profile 目录> --spec <任意 pnpm spec>
+```
+
+退出码：`0` 完成；`1` 参数或 profile 有问题；其余为 pnpm 自己的退出码。
 
 **`preflight.mjs`** — 不是测试，而是**升级前的契约体检**：
 

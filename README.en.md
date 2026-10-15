@@ -9,13 +9,37 @@ Both update on their own; there is nothing to maintain.
 
 ## Install
 
+**Desktop app (the `desktop` profile):** `dsh plugin` refuses to manage that profile and stops with
+
+```
+error: profile "desktop" is managed exclusively by the Electron application
+```
+
+Either path works:
+
+- paste `github:XG221B/dsh-deepseek-status` into Plugins → Add plugin in the sidebar; or
+- use the installer this repository ships. It performs the same two steps DSH performs — `pnpm add` in the profile directory, then registering the true package name in `dsh.profile.bundles` — without tripping that refusal. Clone this repository first and run it from inside:
+
+```sh
+node tools/install.mjs --profile desktop
+```
+
+**Every other profile** (web / tui / headless …) already has a command line:
+
 ```sh
 dsh plugin --profile <profile> add github:XG221B/dsh-deepseek-status
 ```
 
-Use `remove` to uninstall. In the desktop app you can also paste that address into Plugins → Add plugin.
+Uninstall with `remove` instead of `add`, or `--remove` for the installer.
 
-It usually activates right away. Replacing an installed version needs one Harness restart (Host code is cached in the process).
+A `github:` spec reaches github.com through git; when that is unreachable, use a tarball of the same commit — both accept one:
+
+```sh
+node tools/install.mjs --profile desktop \
+  --spec https://codeload.github.com/XG221B/dsh-deepseek-status/tar.gz/refs/heads/main
+```
+
+Refresh the page once afterwards; replacing an installed version needs one Harness restart (Host code is cached in the process).
 
 ## What it looks like
 
@@ -42,10 +66,11 @@ node tools/test-data.mjs      # data layer parsing and validation
 node tools/test-pricing.mjs   # pricing logic
 node tools/test-balance.mjs   # balance logic
 node tools/test-bundle.mjs    # whole browser bundle mount smoke test
+node tools/test-install.mjs   # profile installer (9 real installs when pnpm is present)
 node tools/test-host.mjs      # host end to end, needs network
 ```
 
-286 checks in total; the first four need no network and run on every push. Architecture notes: [DEVELOPING.md](./DEVELOPING.md).
+335 checks in total; the first five need no network and run on every push. Architecture notes: [DEVELOPING.md](./DEVELOPING.md).
 
 After a Harness update, run the contract check before restarting:
 

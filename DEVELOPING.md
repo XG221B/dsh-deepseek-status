@@ -10,7 +10,7 @@ data.js      Host 纯函数层：解析官方价格页、解析两套节假日�
 client.js    浏览器半边：一个 bundle 内两个功能工厂（计费徽标/详情 + 余额徽标/详情）
 cordis.patch.yml  这个 bundle 唯一的一行 Loader 行
 locale/      插件卡片在「Plugins」页显示的标题与描述（中英）
-tools/       四套测试、测试样本与样本再生成脚本（不随 npm 发布）
+tools/       五套测试、安装器、契约体检、测试样本与样本再生成脚本（不随 npm 发布）
 ```
 
 余额功能**没有 Host 代码**：它通过 Harness 账号 Remote 在浏览器侧读取，令牌始终留在 Host。
@@ -101,18 +101,19 @@ DSH 重写 `cordis.patch.yml` 前会把它存成 `cordis.patch.yml.bak-<epoch-ms
 node tools/test-data.mjs      # Host 数据层（100）
 node tools/test-pricing.mjs   # 计费浏览器逻辑（75）
 node tools/test-balance.mjs   # 余额浏览器逻辑（54）
-node tools/test-host.mjs      # Host 端到端，需要网络（36）
 node tools/test-bundle.mjs    # 整个 bundle 的无头冒烟（21）
+node tools/test-install.mjs   # profile 安装器（49；本机没有 pnpm 时最后 9 项报 SKIP）
+node tools/test-host.mjs      # Host 端到端，需要网络（36）
 ```
 
-合计 286 项。push/PR 会自动跑前四套（`.github/workflows/test.yml`），联网那套单独成 job 且非阻挡。
+合计 335 项。push/PR 会自动跑前五套（`.github/workflows/test.yml`）——CI 的 runner 上没有 pnpm，所以安装器那 9 项在 CI 里是 SKIP，其余 40 项照样覆盖 reconcile 的全部判定；联网那套单独成 job 且非阻挡。
 
 ### DSH 升级检查清单
 
 **升级后、重启前**按顺序做：
 
 1. `node tools/preflight.mjs --live` —— 直接读 `app.asar` 核对 12 处契约；任一 FAIL 就先按它打印的方法禁用 bundle，别带着风险重启；
-2. `pnpm test`（= 4 套离线测试，286 项里的 250 项）；
+2. `pnpm test`（= 5 套离线测试，335 项里的 299 项）；
 3. 重启后确认：两个徽标在、`/dsh-deepseek-status/data.json` 返回 200、`preflight --live` 通过。
 
 失效时的表现分四种，照着判断自己遇到的是哪种：
@@ -140,6 +141,14 @@ pnpm pack            # 产出 dsh-deepseek-status-2.0.0.tgz
 本包**没有** `install`/`prepare` 脚本，因此 git 安装与 npm 安装都不需要用户授予 `allowBuilds` 构建权限。
 
 **分发渠道的现实情况**（2026-10 核实）：DSH **没有官方插件市场**可投稿。官方《打包与安装插件》只规定四种安装形态——npm 包、Git 仓库、tarball、本地绝对路径；桌面端「Plugins」页的 Official 组只列**随安装自带**的 bundle。想更大曝光只能发 npm、公开 GitHub 仓库，或投稿到**第三方**社区市场（如 [dsh-market](https://github.com/dsh-market/dsh-market)、[dsh-plugin-market](https://github.com/chnjames/dsh-plugin-market)），审核与可信度由那家负责。
+
+**四条常规安装路径里，桌面版少掉一条。** `dsh plugin` 在 CLI 层有一条硬规则（`lib/bin.js` 的 `rejectElectronProfile`）：`desktop` profile 只归 Electron 应用管，命令直接停下——
+
+```
+error: profile "desktop" is managed exclusively by the Electron application
+```
+
+于是桌面用户、脚本、CI 都没有命令行安装路径，只能手跑 `pnpm add` 再手改 `dsh.profile.bundles`；第二步漏掉时的表现最难查——**包装上了，插件永远不加载**（`cordis.yml` 里根本没有那一行）。这就是 `tools/install.mjs` 存在的理由：它把那两步替你做掉，对任何 profile 都成立，并且和 DSH 一样**按已安装的清单**而不是命令行上的 spec 判定 bundle，所以 tarball 地址、本地路径、别名都会归到真包名。它不去改 DSH 的规则；桌面版第一推荐依然是界面里的 Plugins → Add plugin，这个脚本是给「没有界面可用」的场合准备的。
 
 ## 提交隐私清单（每次发布前过一遍）
 

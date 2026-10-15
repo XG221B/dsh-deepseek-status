@@ -6,6 +6,10 @@ node_modules/
 *.tgz
 *.log
 
+# This package has no dependencies; `pnpm test` still drops an empty importer
+# lockfile here, which would otherwise show up as an untracked file.
+pnpm-lock.yaml
+
 .DS_Store
 Thumbs.db
 .idea/

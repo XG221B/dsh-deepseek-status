@@ -9,13 +9,37 @@
 
 ## 安装
 
+**桌面版（desktop profile）**：`dsh plugin` 不管这个 profile，命令行会直接停下：
+
+```
+error: profile "desktop" is managed exclusively by the Electron application
+```
+
+两条路，任选一条：
+
+- 侧边栏 Plugins → Add plugin，填 `github:XG221B/dsh-deepseek-status`；
+- 或者用仓库自带的安装器。它做的是 DSH 自己做的那两步——在 profile 目录里 `pnpm add`，再把真实包名并入 `dsh.profile.bundles`——只是绕开了那句拒绝。需要先克隆本仓库，在仓库目录里运行：
+
+```sh
+node tools/install.mjs --profile desktop
+```
+
+**其它 profile**（web / tui / headless …）：命令行本来就能用。
+
 ```sh
 dsh plugin --profile <你的 profile> add github:XG221B/dsh-deepseek-status
 ```
 
-卸载就把 `add` 换成 `remove`。桌面版也可以在侧边栏 Plugins → Add plugin 里填这个地址。
+卸载：前者把 `add` 换成 `remove`；安装器加 `--remove`。
 
-装完一般立刻生效；如果覆盖安装旧版本，需要重启一次 Harness（Host 代码缓存在进程里）。
+`github:` 这类 spec 要经 git 访问 github.com，网络到不了时改用同一个提交的 tarball，两种方式都认：
+
+```sh
+node tools/install.mjs --profile desktop \
+  --spec https://codeload.github.com/XG221B/dsh-deepseek-status/tar.gz/refs/heads/main
+```
+
+装完刷新一次页面；覆盖安装旧版本则要重启一次 Harness（Host 代码缓存在进程里）。
 
 ## 长什么样
 
@@ -45,10 +69,11 @@ node tools/test-data.mjs      # 数据层解析与校验
 node tools/test-pricing.mjs   # 计费逻辑
 node tools/test-balance.mjs   # 余额逻辑
 node tools/test-bundle.mjs    # 整个浏览器 bundle 的挂载冒烟
+node tools/test-install.mjs   # profile 安装器（本机有 pnpm 时多跑 9 项真实安装）
 node tools/test-host.mjs      # Host 端到端，需要联网
 ```
 
-共 286 项检查，前四套不需要网络，push 时自动跑。架构说明见 [DEVELOPING.md](./DEVELOPING.md)。
+共 335 项检查，前五套不需要网络，push 时自动跑。架构说明见 [DEVELOPING.md](./DEVELOPING.md)。
 
 DSH 升级后先跑一次契约检查，再决定要不要重启（一个入口没激活会让界面起不来，这条命令能提前发现）：
 

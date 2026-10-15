@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.3 — 桌面版终于有命令行安装路径（运行时行为无变化）
+
+**问题**：README 主推的 `dsh plugin --profile <profile> add github:XG221B/dsh-deepseek-status` 对 **desktop profile 直接停下**——CLI 里有一条硬规则（`lib/bin.js` 的 `rejectElectronProfile`）：该 profile 只归 Electron 应用管。于是桌面用户、脚本、CI 都没有命令行安装路径，只能手跑 `pnpm add` 再手改 `dsh.profile.bundles`；第二步漏掉时的表现是最难查的那一种——**包装上了，插件永远不加载**（`cordis.yml` 里根本没有那一行）。
+
+- 新增 `tools/install.mjs`：对**任何** profile 都能用的安装/卸载器，包括 desktop。它做 DSH 自己做的两步——profile 目录里 `pnpm add`/`remove`，再按**已安装的清单**（而不是命令行上的 spec）判定 bundle 并并入 `dsh.profile.bundles`，所以 tarball 地址、本地路径、别名都会归到真包名。幂等、只在真的变化时写盘，`--dry-run` 只打印计划；另有 `--profile` / `--profile-dir` / `--dsh-home` / `--spec` / `--pnpm` / `--remove`。
+- 新增 `tools/test-install.mjs`（49 项）：用临时目录里的假 profile 覆盖「该进的进、该出的出、模板行不碰、二次运行不改一个字节、坏清单报清晰错误、干跑不写盘」，最后一段是真实 pnpm 的装—再装—卸闭环；本机没有 pnpm 时报 `SKIP`，所以只带 Node 的 CI runner 依然通过。
+- README（中英）改写安装一节：为什么 `dsh plugin` 对桌面版会报错、界面 Plugins → Add plugin 仍是首选、仓库自带安装器是那条命令行、github.com 不通时改用同一提交的 tarball spec；「装完刷新一次页面」也写进正文。
+- `.github/workflows/test.yml` 增加安装器一列；`pnpm test` 与 [tools/README.md](./tools/README.md)、[DEVELOPING.md](./DEVELOPING.md) 的清单同步。测试总数 286 → 335（离线 250 → 299）。
+- `pnpm-lock.yaml` 进 `.gitignore`：本包没有依赖，但 `pnpm test` 会在仓库根留下一个空的 importer 锁文件，跑完测试就多一个未跟踪文件。
+
 ## 2.0.2 — 只有开发工具与 CI（运行时行为无变化）
 
 - 新增 `tools/preflight.mjs`：**DSH 升级后的一条命令**。它直接读安装目录里的 `app.asar`（自带纯 Node 的 asar 读取器，无依赖、不解包到磁盘），核对本插件依赖的 12 处契约——两个槽位 key、四个客户端服务包、浏览器模块加载契约 `__ModuleLoader__`、清单字段 `dsh.client.immediately`、客户端 `ctx.inject(deps, cb)` 的真实用法、Host 路由选项 `handler`、Cordis 的注入语义（属性访问需 inject）；另有一项信息性检查（web 启动是否仍把「入口未激活」当致命错误）。`--live` 还会顺带检查运行中的数据集路由。任一项消失时它打印该契约消失的后果，以及如何在下次启动前禁用本 bundle。

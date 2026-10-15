@@ -30,6 +30,10 @@ jobs:
         run: node tools/test-balance.mjs
       - name: whole-bundle smoke (module id, slots, optional mount, fault isolation)
         run: node tools/test-bundle.mjs
+      # Needs no pnpm: the section that drives a real install reports SKIP without
+      # it, so the reconcile logic is still covered on a bare Node runner.
+      - name: profile installer (bundle registration, idempotence, dry run)
+        run: node tools/test-install.mjs
 
   live-sources:
     name: live source suite (informational)
