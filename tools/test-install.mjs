@@ -18,7 +18,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   exportsBundlePatch,
@@ -106,15 +106,17 @@ check('remove builds pnpm remove', pnpmArgs({ remove: true, spec: 'dsh-deepseek-
  * ------------------------------------------------------------------ */
 
 console.log('--- profile lookup ---');
-check('an explicit directory wins over the profile name', resolveProfileDir({ profile: 'web', profileDir: 'D:/some/profile' }).replace(/\\/g, '/'), 'D:/some/profile');
-check('a profile name lands under <dsh home>/profiles', resolveProfileDir({ profile: 'desktop', dshHome: 'D:/dsh-home' }).replace(/\\/g, '/'), 'D:/dsh-home/profiles/desktop');
+// Paths are asserted through `resolve`/suffixes, never as literals: the suites
+// run on Linux CI as well as on the machine this was developed on.
+check('an explicit directory wins over the profile name', resolveProfileDir({ profile: 'web', profileDir: 'D:/some/profile' }), resolve('D:/some/profile'));
+ok('a profile name lands under <dsh home>/profiles', resolveProfileDir({ profile: 'desktop', dshHome: 'D:/dsh-home' }).replace(/\\/g, '/').endsWith('D:/dsh-home/profiles/desktop'));
 const previousHome = process.env.DSH_HOME;
 process.env.DSH_HOME = 'D:/env-home';
-check('DSH_HOME is honoured', resolveProfileDir({ profile: 'tui' }).replace(/\\/g, '/'), 'D:/env-home/profiles/tui');
+ok('DSH_HOME is honoured', resolveProfileDir({ profile: 'tui' }).replace(/\\/g, '/').endsWith('D:/env-home/profiles/tui'));
 if (previousHome === undefined) delete process.env.DSH_HOME;
 else process.env.DSH_HOME = previousHome;
 process.env.DSH_HOME = 'D:/env-home';
-check('the flag beats DSH_HOME', resolveProfileDir({ profile: 'tui', dshHome: 'D:/flag-home' }).replace(/\\/g, '/'), 'D:/flag-home/profiles/tui');
+ok('the flag beats DSH_HOME', resolveProfileDir({ profile: 'tui', dshHome: 'D:/flag-home' }).replace(/\\/g, '/').endsWith('D:/flag-home/profiles/tui'));
 if (previousHome === undefined) delete process.env.DSH_HOME;
 else process.env.DSH_HOME = previousHome;
 ok('with nothing configured it falls back to ~/.dsh', /[\\/]\.dsh[\\/]profiles[\\/]web$/.test(resolveProfileDir({ profile: 'web' })));
